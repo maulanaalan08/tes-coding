@@ -3,9 +3,10 @@
 @section('content')
 <div class="container">
     <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="form-group mb-2">
-                <a href="{{url('master-items/form/new')}}" class="btn btn-secondary">+ Master Items Baru</a>
+        <div class="col-md-10">
+            <div class="d-flex justify-content-between mb-2">
+                <a href="{{ route('master-items.create') }}" class="btn btn-secondary">+ Master Items Baru</a>
+                <a href="{{ route('master-items.export') }}" class="btn btn-success">Export Excel</a>
             </div>
             <div class="card">
                 <div class="card-header">Daftar Master Items</div>
