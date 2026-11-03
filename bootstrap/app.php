@@ -1,5 +1,9 @@
 <?php
 
+if (!class_exists('Composer\InstalledVersions') && file_exists(__DIR__ . '/../vendor/composer/InstalledVersions.php')) {
+    require_once __DIR__ . '/../vendor/composer/InstalledVersions.php';
+}
+
 /*
 |--------------------------------------------------------------------------
 | Create The Application
