@@ -22,3 +22,9 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Development & Planning Docs
+PRD-*.md
+COMMIT-SUMMARY.md
+DEPLOYMENT-SUMMARY.md
+rekrutmen.sh
