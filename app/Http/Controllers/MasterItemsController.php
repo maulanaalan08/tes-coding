@@ -2,96 +2,344 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\MasterItemsExport;
+use App\Http\Requests\StoreMasterItemRequest;
+use App\Http\Requests\UpdateMasterItemRequest;
+use App\Models\Kategori;
 use App\Models\MasterItem;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class MasterItemsController extends Controller
 {
+    /**
+     * Display a listing of master items.
+     *
+     * @return \Illuminate\View\View
+     */
     public function index()
     {
         return view('master_items.index.index');
     }
 
+    /**
+     * Search master items with filters (AJAX endpoint).
+     *
+     * @param  Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function search(Request $request)
     {
-        $kode = $request->kode;
-        $nama = $request->nama;
-        $hargamin = $request->hargamin;
-        $hargamax = $request->hargamax;
+        $query = MasterItem::query();
 
-        $data_search = MasterItem::query();
+        // Apply filters
+        if ($request->filled('kode')) {
+            $query->where('kode', $request->kode);
+        }
 
-        if (!empty($kode)) $data_search = $data_search->where('kode', $kode);
-        if (!empty($nama)) $data_search = $data_search->where('nama', 'LIKE', '%' . $nama . '%');
-        if (!empty($hargamin)) $data_search = $data_search->where('harga_beli', '>=', $hargamin)->where('harga_beli', '<=', $hargamax);
+        if ($request->filled('nama')) {
+            $query->where('nama', 'LIKE', '%' . $request->nama . '%');
+        }
 
-        $data_search = $data_search->select('kode', 'nama', 'jenis', 'harga_beli', 'laba', 'supplier')->orderBy('id')->get();
+        if ($request->filled('hargamin') && is_numeric($request->hargamin)) {
+            $query->where('harga_beli', '>=', (int) $request->hargamin);
+        }
 
+        if ($request->filled('hargamax') && is_numeric($request->hargamax)) {
+            $query->where('harga_beli', '<=', (int) $request->hargamax);
+        }
 
-        return json_encode([
+        // Eager load kategoris to prevent N+1 queries
+        $items = $query->with('kategoris:id,nama,kode')
+            ->select('id', 'kode', 'nama', 'foto', 'jenis', 'harga_beli', 'laba', 'supplier')
+            ->orderBy('id')
+            ->get();
+
+        // Transform data
+        $data = $items->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'kode' => $item->kode,
+                'nama' => $item->nama,
+                'foto' => $item->foto,
+                'foto_url' => $item->foto_url,
+                'jenis' => $item->jenis,
+                'harga_beli' => $item->harga_beli,
+                'laba' => $item->laba,
+                'supplier' => $item->supplier,
+                'kategoris' => $item->kategoris ? $item->kategoris->pluck('nama')->implode(', ') : '',
+            ];
+        });
+
+        return response()->json([
             'status' => 200,
-            'data' => $data_search
+            'data' => $data,
         ]);
     }
 
-    public function formView($method, $id = 0)
+    /**
+     * Show the form for creating a new master item.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function create()
     {
-        if ($method == 'new') {
-            $item = [];
-        } else {
-            $item = MasterItem::find($id);
+        $kategoris = Kategori::orderBy('nama')->get();
+
+        return view('master_items.form.index', [
+            'item' => (object) [],
+            'method' => 'create',
+            'kategoris' => $kategoris,
+        ]);
+    }
+
+    /**
+     * Store a newly created master item in storage.
+     *
+     * @param  StoreMasterItemRequest $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function store(StoreMasterItemRequest $request)
+    {
+        DB::beginTransaction();
+
+        try {
+            $kode = $this->generateKode();
+
+            $item = new MasterItem();
+            $item->kode = $kode;
+            $item->nama = $request->nama;
+            $item->harga_beli = $request->harga_beli;
+            $item->laba = $request->laba;
+            $item->supplier = $request->supplier;
+            $item->jenis = $request->jenis;
+
+            if ($request->hasFile('foto')) {
+                $item->foto = $this->handleFileUpload($request->file('foto'));
+            }
+
+            $item->save();
+
+            if ($request->has('kategoris')) {
+                $item->kategoris()->sync($request->kategoris);
+            }
+
+            DB::commit();
+
+            return redirect()->route('master-items.index')
+                ->with('success', 'Master item berhasil ditambahkan');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            if (isset($item->foto)) {
+                $this->deleteFile($item->foto);
+            }
+
+            return back()
+                ->withErrors(['error' => 'Gagal menyimpan data: ' . $e->getMessage()])
+                ->withInput();
         }
-        $data['item'] = $item;
-        $data['method'] = $method;
-        return view('master_items.form.index', $data);
     }
 
-    public function singleView($kode)
+    /**
+     * Display the specified master item.
+     *
+     * @param  string $kode
+     * @return \Illuminate\View\View
+     */
+    public function show($kode)
     {
-        $data['data'] = MasterItem::where('kode', $kode)->first();
-        return view('master_items.single.index', $data);
+        $item = MasterItem::with('kategoris')
+            ->where('kode', $kode)
+            ->firstOrFail();
+
+        return view('master_items.single.index', ['data' => $item]);
     }
 
-    public function formSubmit(Request $request, $method, $id = 0)
+    /**
+     * Show the form for editing the specified master item.
+     *
+     * @param  int $id
+     * @return \Illuminate\View\View
+     */
+    public function edit($id)
     {
-        if ($method == 'new') {
-            $data_item = new MasterItem;
-            $kode = MasterItem::count('id');
-            $kode = $kode + 1;
-            $kode = str_pad($kode, 5, '0', STR_PAD_LEFT);
-            sleep(3);
+        $item = MasterItem::with('kategoris')->findOrFail($id);
+        $kategoris = Kategori::orderBy('nama')->get();
+
+        return view('master_items.form.index', [
+            'item' => $item,
+            'method' => 'edit',
+            'kategoris' => $kategoris,
+        ]);
+    }
+
+    /**
+     * Update the specified master item in storage.
+     *
+     * @param  UpdateMasterItemRequest $request
+     * @param  int $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function update(UpdateMasterItemRequest $request, $id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $item = MasterItem::findOrFail($id);
+
+            $item->nama = $request->nama;
+            $item->harga_beli = $request->harga_beli;
+            $item->laba = $request->laba;
+            $item->supplier = $request->supplier;
+            $item->jenis = $request->jenis;
+
+            if ($request->hasFile('foto')) {
+                if ($item->foto) {
+                    $this->deleteFile($item->foto);
+                }
+
+                $item->foto = $this->handleFileUpload($request->file('foto'));
+            }
+
+            $item->save();
+
+            if ($request->has('kategoris')) {
+                $item->kategoris()->sync($request->kategoris);
+            } else {
+                $item->kategoris()->sync([]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('master-items.index')
+                ->with('success', 'Master item berhasil diupdate');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return back()
+                ->withErrors(['error' => 'Gagal update data: ' . $e->getMessage()])
+                ->withInput();
+        }
+    }
+
+    /**
+     * Remove the specified master item from storage.
+     *
+     * @param  int $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function destroy($id)
+    {
+        try {
+            $item = MasterItem::findOrFail($id);
+            $item->delete();
+
+            return redirect()->route('master-items.index')
+                ->with('success', 'Master item berhasil dihapus');
+
+        } catch (\Exception $e) {
+            return back()
+                ->withErrors(['error' => 'Gagal menghapus data: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Export master items to Excel.
+     *
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
+     */
+    public function exportExcel()
+    {
+        return Excel::download(
+            new MasterItemsExport,
+            'master_items_' . now()->format('YmdHis') . '.xlsx'
+        );
+    }
+
+    /**
+     * Generate unique sequential kode for new master item.
+     *
+     * @return string
+     */
+    private function generateKode()
+    {
+        $lastItem = MasterItem::withTrashed()
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($lastItem) {
+            $lastNumber = (int) $lastItem->kode;
+            $nextNumber = $lastNumber + 1;
         } else {
-            $data_item = MasterItem::find($id);
-            $kode = $data_item->kode;
+            $nextNumber = 1;
         }
 
-        $data_item->nama = $request->nama;
-        $data_item->harga_beli = $request->harga_beli;
-        $data_item->laba = $request->laba;
-        $data_item->kode = $kode;
-        $data_item->supplier = $request->supplier;
-        $data_item->jenis = $request->jenis;
-        $data_item->save();
-
-        return redirect('master-items');
+        return str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
     }
 
-    public function delete($id)
+    /**
+     * Handle file upload to public/uploads and storage.
+     *
+     * @param  \Illuminate\Http\UploadedFile $file
+     * @return string
+     */
+    private function handleFileUpload($file)
     {
-        MasterItem::find($id)->delete();
-        return redirect('master-items');
+        $fileName = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+        $destinationPath = public_path('uploads');
+        if (!file_exists($destinationPath)) {
+            mkdir($destinationPath, 0777, true);
+        }
+        $file->move($destinationPath, $fileName);
+
+        $storagePath = storage_path('app/public/uploads');
+        if (!file_exists($storagePath)) {
+            mkdir($storagePath, 0777, true);
+        }
+        @copy(
+            $destinationPath . DIRECTORY_SEPARATOR . $fileName,
+            $storagePath . DIRECTORY_SEPARATOR . $fileName
+        );
+
+        return $fileName;
     }
 
+    /**
+     * Delete uploaded file from public and storage.
+     *
+     * @param  string $fileName
+     * @return void
+     */
+    private function deleteFile($fileName)
+    {
+        $publicFile = public_path('uploads' . DIRECTORY_SEPARATOR . basename($fileName));
+        if (file_exists($publicFile)) {
+            @unlink($publicFile);
+        }
+
+        $storageFile = storage_path('app/public/uploads' . DIRECTORY_SEPARATOR . basename($fileName));
+        if (file_exists($storageFile)) {
+            @unlink($storageFile);
+        }
+    }
+
+    /**
+     * Update random data (utility).
+     */
     public function updateRandomData()
     {
         $data = MasterItem::get();
-        foreach($data as $item)
-        {
+        foreach ($data as $item) {
             $kode = $item->id;
             $kode = str_pad($kode, 5, '0', STR_PAD_LEFT);
 
-            $item->harga_beli = rand(100,1000000);
-            $item->laba = rand(10,99);
+            $item->harga_beli = rand(100, 1000000);
+            $item->laba = rand(10, 99);
             $item->kode = $kode;
             $item->supplier = $this->getRandomSupplier();
             $item->jenis = $this->getRandomJenis();
@@ -101,15 +349,15 @@ class MasterItemsController extends Controller
 
     private function getRandomSupplier()
     {
-        $array = ['Tokopaedi','Bukulapuk','TokoBagas','E Commurz','Blublu'];
-        $random = rand(0,4);
+        $array = ['Tokopaedi', 'Bukulapuk', 'TokoBagas', 'E Commurz', 'Blublu'];
+        $random = rand(0, 4);
         return $array[$random];
     }
 
     private function getRandomJenis()
     {
-        $array = ['Obat','Alkes','Matkes','Umum','ATK'];
-        $random = rand(0,4);
+        $array = ['Obat', 'Alkes', 'Matkes', 'Umum', 'ATK'];
+        $random = rand(0, 4);
         return $array[$random];
     }
 }

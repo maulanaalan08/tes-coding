@@ -1,66 +1,107 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Medify Master Items Management
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem manajemen master data berbasis Laravel 9 dengan fitur CRUD lengkap, relasi many-to-many kategori, pencarian dinamis (filter harga min/max), upload foto, dan pelaporan export PDF/Excel.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Fitur Utama
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- ✅ **Master Items CRUD**: Create, Read, Update, Delete dengan arsitektur MVC yang bersih.
+- ✅ **Kategori Items (Many-to-Many)**: Relasi banyak ke banyak antara items dan kategori menggunakan pivot table `kategori_master_item`.
+- ✅ **Upload & Kelola Foto**: Upload foto master items dengan validasi gambar dan preview foto saat edit.
+- ✅ **Filter Dinamis (Bug Fixed)**: Filter harga min, harga max, kode, dan nama yang bekerja secara independen maupun kombinasi.
+- ✅ **Export PDF Detail Kategori**: Generate laporan PDF detail kategori dan daftar item menggunakan `barryvdh/laravel-dompdf`.
+- ✅ **Export Excel Master Items**: Export data items dan kategori ke format `.xlsx` menggunakan `maatwebsite/excel`.
+- ✅ **RESTful API Compliance (RFC 7231)**: Menggunakan resource routes dengan HTTP methods yang tepat (`POST`, `PUT`, `DELETE`).
+- ✅ **CSRF Protection**: Semua operasi perubahan status (`POST`, `PUT`, `DELETE`) dilindungi token CSRF (mencegah vulnerability GET delete).
+- ✅ **Concurrency-Safe Auto-Code Generation**: Penomoran kode otomatis menggunakan transaksi database dan `max(id)`.
+- ✅ **Eager Loading (No N+1 Queries)**: Query data dioptimasi menggunakan `with('kategoris')` untuk performa tinggi.
+- ✅ **Soft Deletes**: Menggunakan `SoftDeletes` untuk mempertahankan audit trail data SIMRS/ERP.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Tech Stack
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- **Backend**: Laravel 9.x, PHP 8.2
+- **Frontend**: Bootstrap 5.2, jQuery, DataTables
+- **Database**: MySQL 8.0
+- **PDF Export**: DomPDF (`barryvdh/laravel-dompdf` v3.1)
+- **Excel Export**: PhpSpreadsheet / Laravel Excel (`maatwebsite/excel` v3.1)
+- **Asset Bundler**: Vite 3.0
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+---
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Instalasi & Menjalankan Aplikasi
 
-## Laravel Sponsors
+```bash
+# 1. Clone repository
+git clone <repo-url>
+cd tes-coding
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+# 2. Install dependencies
+composer install
+npm install
 
-### Premium Partners
+# 3. Setup environment
+cp .env.example .env
+php artisan key:generate
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+# 4. Setup database
+php artisan migrate
 
-## Contributing
+# 5. Build assets
+npm run dev
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# 6. Menjalankan server lokal
+php artisan serve
+```
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Dokumentasi API & Routing
 
-## Security Vulnerabilities
+Daftar endpoint lengkap dapat dilihat pada [docs/REST-API.md](docs/REST-API.md).
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Ringkasan Routes:
 
-## License
+| Method | URI | Action | Keterangan |
+|---|---|---|---|
+| GET | `/master-items` | `master-items.index` | Halaman daftar master items |
+| GET | `/master-items/create` | `master-items.create` | Form tambah master item |
+| POST | `/master-items` | `master-items.store` | Simpan master item baru |
+| GET | `/master-items/view/{kode}` | `master-items.show` | Detail master item |
+| GET | `/master-items/{id}/edit` | `master-items.edit` | Form edit master item |
+| PUT | `/master-items/{id}` | `master-items.update` | Update master item |
+| DELETE | `/master-items/{id}` | `master-items.destroy` | Hapus master item (soft delete) |
+| GET | `/master-items/search` | `master-items.search` | AJAX endpoint DataTable master items |
+| GET | `/master-items/export-excel` | `master-items.export` | Download export file Excel |
+| GET | `/kategoris` | `kategoris.index` | Halaman daftar kategori |
+| GET | `/kategoris/create` | `kategoris.create` | Form tambah kategori |
+| POST | `/kategoris` | `kategoris.store` | Simpan kategori baru |
+| GET | `/kategoris/view/{kode}` | `kategoris.show` | Detail kategori & list items |
+| GET | `/kategoris/{id}/edit` | `kategoris.edit` | Form edit kategori |
+| PUT | `/kategoris/{id}` | `kategoris.update` | Update kategori |
+| DELETE | `/kategoris/{id}` | `kategoris.destroy` | Hapus kategori (soft delete) |
+| GET | `/kategoris/search` | `kategoris.search` | AJAX endpoint DataTable kategori |
+| GET | `/kategoris/export-pdf/{id}` | `kategoris.export-pdf` | Download export file PDF |
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+---
+
+## Menjalankan Pengujian (Testing)
+
+Semua unit dan feature test dapat dijalankan melalui PHPUnit:
+
+```bash
+php artisan test
+```
+
+Untuk menjalankan test suite master item dan kategori:
+```bash
+php artisan test --filter="KategoriTest|MasterItemTest"
+```
+
+---
+
+## Lisensi
+
+Aplikasi ini dilisensikan di bawah [MIT license](https://opensource.org/licenses/MIT).
