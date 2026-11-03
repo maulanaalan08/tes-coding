@@ -5,11 +5,10 @@
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="form-group mb-2">
-                <a href="{{url('master-items')}}" class="btn btn-secondary">Kembali ke Daftar Item</a>
+                <a href="{{ route('master-items.index') }}" class="btn btn-secondary">Kembali ke Daftar Item</a>
             </div>
             <div class="card">
-
-                @if($method == 'new')
+                @if($method == 'create')
                 <div class="card-header">Buat Master Item Baru</div>
                 @else
                 <div class="card-header">Edit Master Item</div>
